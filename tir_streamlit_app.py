@@ -38,13 +38,13 @@ st.write(f"**Renta mensual calculada:** ${renta_mensual:,.2f}")
 st.write(f"**TIR objetivo anual:** {tir_objetivo_anual * 100:.2f}%")
 
 # === Análisis: encontrar día en que debe salir el pago para mantener esa TIR ===
-st.header("3. Día óptimo del pago al proveedor (ajustando los flujos)")
+st.header("3. Día óptimo del pago al proveedor")
 st.write("Este cálculo mueve el pago al proveedor dentro del plazo y encuentra el día exacto que conserva la TIR objetivo.")
 
-def flujo_diario_con_dia_pago(dia_pago):
+def flujo_diario_con_dia_pago(dia):
     flujo = [0.0 for _ in range(dias_totales + 1)]
     flujo[0] = pago_anticipo
-    flujo[int(dia_pago)] = -costo_equipo
+    flujo[int(dia)] = -costo_equipo
     for i in range(1, int(plazo_meses) + 1):
         flujo[i * 30] += renta_mensual
     return flujo
@@ -59,5 +59,15 @@ def tir_diferencia_dia(dia):
 try:
     dia_optimo = brentq(tir_diferencia_dia, 1, dias_totales - 30)
     st.success(f"**El día ideal para realizar el pago al proveedor es el día {round(dia_optimo)}** para mantener la TIR del {tir_objetivo_anual * 100:.2f}%")
+
+    # Mostrar tabla de flujos diarios
+    flujo_final = flujo_diario_con_dia_pago(dia_optimo)
+    df_flujo_dia = pd.DataFrame({
+        "Día": list(range(len(flujo_final))),
+        "Flujo de Caja": flujo_final
+    })
+    st.subheader("4. Flujo Diario de Caja")
+    st.dataframe(df_flujo_dia)
+
 except Exception as e:
     st.error(f"No fue posible encontrar el día óptimo: {e}")
