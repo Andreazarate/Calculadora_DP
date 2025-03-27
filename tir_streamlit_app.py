@@ -34,7 +34,7 @@ def tir_diferencia_dia(dia_egreso):
 
 if st.button("Calcular día ideal del egreso"):
     try:
-        dia_ideal = brentq(tir_diferencia_dia, 1, plazo_meses * 30)
+        dia_ideal = brentq(tir_diferencia_dia, 1, (plazo_meses - 1) * 30)
         tir_final = tir_objetivo_mensual * 12
         st.success(f"Día exacto del egreso: {round(dia_ideal, 2)}")
         st.success(f"TIR objetivo anual alcanzada: {round(tir_final * 100, 2)}%")
