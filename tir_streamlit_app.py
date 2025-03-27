@@ -1,3 +1,4 @@
+
 import streamlit as st
 import numpy as np
 import numpy_financial as npf
@@ -6,83 +7,53 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 st.set_page_config(layout="wide")
-st.title("Simulador de Flujo y Día Óptimo de Egreso para Alcanzar TIR Objetiva")
+st.title("Simulador de Flujo de Arrendamiento - TIR vs Día de Pago al Proveedor")
 
 # === Entradas del usuario ===
 col1, col2 = st.columns(2)
 with col1:
-    inversion_inicial = st.number_input("Inversión inicial (mes 0)", value=1_000_000.0)
-    egreso = st.number_input("Egreso único (negativo)", value=-5_000_000.0)
+    enganche = st.number_input("Enganche recibido (día 0)", value=1_000_000.0)
+    pago_proveedor = st.number_input("Pago al proveedor (egreso negativo)", value=-5_000_000.0)
     plazo_meses = st.number_input("Plazo total (meses)", min_value=1, value=36, step=1)
-    tir_objetivo_anual = st.number_input("TIR objetivo anual (%)", value=16.0) / 100
+    tir_objetivo_anual = st.number_input("TIR objetivo anual esperada (%)", value=16.0) / 100
 with col2:
-    flujo_mensual = st.number_input("Flujo mensual (renta) [opcional]", value=0.0)
-    tasa_nominal_anual = st.number_input("Tasa nominal anual estimada (%)", value=0.0)
+    renta_mensual = st.number_input("Renta mensual (pagos del cliente)", value=160_000.0)
+    dia_min = st.number_input("Día mínimo para el pago al proveedor", value=1, step=1)
+    dia_max = st.number_input("Día máximo para el pago al proveedor", value=900, step=1)
 
 tir_objetivo_mensual = (1 + tir_objetivo_anual)**(1/12) - 1
 dias_totales = int(plazo_meses * 30)
 n_total = plazo_meses + 1
 
-# === Si no se proporciona flujo mensual, calcularlo ===
-def calcular_renta(flujo_base, inversion_inicial, egreso, tir_mensual, plazo):
-    def f(renta):
-        flujo = [inversion_inicial]
-        flujo += [renta] * int(plazo * 12)
-        flujo[int(plazo/3)] += egreso
-        return npf.irr(flujo) - tir_mensual
-    try:
-        return brentq(f, 0.01, abs(egreso))
-    except:
-        return None
+# === Función de flujo por día ===
+def construir_flujo_por_dia(dia_pago_proveedor):
+    flujo = [0.0 for _ in range(dias_totales + 1)]
+    flujo[0] = enganche
+    flujo[int(dia_pago_proveedor)] = pago_proveedor
+    for i in range(1, plazo_meses + 1):
+        flujo[i * 30] += renta_mensual
+    return flujo
 
-if flujo_mensual <= 0:
-    flujo_mensual = calcular_renta(flujo_mensual, inversion_inicial, egreso, tir_objetivo_mensual, plazo_meses)
-    if flujo_mensual:
-        st.info(f"Renta mensual calculada: ${round(flujo_mensual, 2)}")
+# === Cálculo de TIR diaria en el rango definido ===
+dias = list(range(int(dia_min), int(dia_max) + 1))
+tirs = []
+for d in dias:
+    flujo = construir_flujo_por_dia(d)
+    tir = npf.irr(flujo)
+    if tir is not None and not np.isnan(tir):
+        tirs.append(tir * 12)
     else:
-        st.error("No fue posible calcular una renta que alcance la TIR indicada.")
+        tirs.append(np.nan)
 
-# === Función de búsqueda de TIR por día ===
-def tir_diferencia_dia(dia_egreso):
-    try:
-        mes_egreso = dia_egreso / 30
-        flujo = [inversion_inicial]
-        for i in range(1, int(plazo_meses) + 1):
-            if i == int(np.floor(mes_egreso)):
-                fraccion = mes_egreso - np.floor(mes_egreso)
-                flujo.append(egreso * fraccion + flujo_mensual * (1 - fraccion))
-            elif i == int(np.floor(mes_egreso)) + 1:
-                fraccion = mes_egreso - np.floor(mes_egreso)
-                flujo.append(egreso * (1 - fraccion) + flujo_mensual * fraccion)
-            else:
-                flujo.append(flujo_mensual)
-        tir = npf.irr(flujo)
-        if tir is None or np.isnan(tir):
-            return 9999
-        return tir - tir_objetivo_mensual
-    except:
-        return 9999
+# === Visualización ===
+st.subheader("Gráfica de TIR vs Día del Pago al Proveedor")
 
-# === Cálculo del día óptimo ===
-st.subheader("Resultado del Análisis")
-if st.button("Calcular día óptimo del egreso"):
-    try:
-        dia_ideal = brentq(tir_diferencia_dia, 1, (plazo_meses - 1) * 30)
-        tir_final = tir_objetivo_mensual * 12
-        st.success(f"Día exacto del egreso: {round(dia_ideal, 2)}")
-        st.success(f"TIR objetivo anual alcanzada: {round(tir_final * 100, 2)}%")
+grafico = pd.DataFrame({
+    "Día de Pago al Proveedor": dias,
+    "TIR Anual (%)": [round(t * 100, 4) if not np.isnan(t) else None for t in tirs]
+})
 
-        # === Tabla y gráfica ===
-        flujo_diario = [0.0 for _ in range(dias_totales + 1)]
-        flujo_diario[0] = inversion_inicial
-        flujo_diario[int(dia_ideal)] = egreso
-        for i in range(1, plazo_meses + 1):
-            flujo_diario[i * 30] += flujo_mensual
+st.line_chart(grafico.set_index("Día de Pago al Proveedor"))
 
-        df = pd.DataFrame({"Día": list(range(dias_totales + 1)), "Flujo": flujo_diario})
-        st.line_chart(df.set_index("Día"))
-
-        with st.expander("Ver tabla de flujos diarios"):
-            st.dataframe(df)
-    except Exception as e:
-        st.error(f"No se pudo calcular: {e}")
+with st.expander("Ver datos de TIR por día"):
+    st.dataframe(grafico)
