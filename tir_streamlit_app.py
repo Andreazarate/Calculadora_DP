@@ -9,7 +9,7 @@ st.title("Cotizador de Arrendamiento - Cálculo de Renta y TIR")
 # === Entradas del usuario ===
 col1, col2 = st.columns(2)
 with col1:
-    costo_equipo = st.number_input("Costo del equipo", value=1_000_000.0)
+    costo_equipo = st.number_input("Costo del equipo (pago al proveedor)", value=1_000_000.0)
     pago_anticipo = st.number_input("Enganche o anticipo del cliente", value=100_000.0)
     plazo_meses = st.number_input("Plazo del arrendamiento (meses)", min_value=1, value=36)
 with col2:
@@ -19,11 +19,11 @@ tasa_mensual = (1 + tasa_anual) ** (1/12) - 1
 capital_a_financiar = costo_equipo - pago_anticipo
 
 # === Cálculo de la renta mensual ===
-# Se asume renta fija tipo PMT (pago periódico que amortiza un valor presente)
 renta_mensual = -npf.pmt(tasa_mensual, plazo_meses, capital_a_financiar)
 
 # === Construcción del flujo de caja ===
-flujo = [pago_anticipo] + [renta_mensual] * int(plazo_meses)
+# Día 0: egreso por pago al proveedor y entrada por enganche del cliente
+flujo = [-costo_equipo + pago_anticipo] + [renta_mensual] * int(plazo_meses)
 tir = npf.irr(flujo) * 12
 
 # === Mostrar resultados ===
