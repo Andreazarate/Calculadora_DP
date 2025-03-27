@@ -16,24 +16,30 @@ plazo_meses = st.number_input("Plazo total en meses", value=36, step=1)
 tir_objetivo_mensual = (1 + tir_objetivo_anual) ** (1/12) - 1
 n_total = int(plazo_meses) + 1
 
-# Función de búsqueda
+# Función de búsqueda robusta
 def tir_diferencia_dia(dia_egreso):
-    mes_egreso = dia_egreso / 30
-    flujo = [inversion_inicial]
-    for i in range(1, n_total):
-        if i == int(np.floor(mes_egreso)):
-            fraccion = mes_egreso - np.floor(mes_egreso)
-            flujo.append(egreso * fraccion + flujo_mensual * (1 - fraccion))
-        elif i == int(np.floor(mes_egreso)) + 1:
-            fraccion = mes_egreso - np.floor(mes_egreso)
-            flujo.append(egreso * (1 - fraccion) + flujo_mensual * fraccion)
-        else:
-            flujo.append(flujo_mensual)
-    tir = npf.irr(flujo)
-    return tir - tir_objetivo_mensual
+    try:
+        mes_egreso = dia_egreso / 30
+        flujo = [inversion_inicial]
+        for i in range(1, n_total):
+            if i == int(np.floor(mes_egreso)):
+                fraccion = mes_egreso - np.floor(mes_egreso)
+                flujo.append(egreso * fraccion + flujo_mensual * (1 - fraccion))
+            elif i == int(np.floor(mes_egreso)) + 1:
+                fraccion = mes_egreso - np.floor(mes_egreso)
+                flujo.append(egreso * (1 - fraccion) + flujo_mensual * fraccion)
+            else:
+                flujo.append(flujo_mensual)
+        tir = npf.irr(flujo)
+        if tir is None or np.isnan(tir):
+            return 9999  # valor arbitrario para evitar fallo
+        return tir - tir_objetivo_mensual
+    except:
+        return 9999
 
 if st.button("Calcular día ideal del egreso"):
     try:
+        # limitar el rango a evitar errores en extremos
         dia_ideal = brentq(tir_diferencia_dia, 1, (plazo_meses - 1) * 30)
         tir_final = tir_objetivo_mensual * 12
         st.success(f"Día exacto del egreso: {round(dia_ideal, 2)}")
