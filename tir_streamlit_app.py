@@ -1,3 +1,4 @@
+
 import streamlit as st
 import numpy as np
 import numpy_financial as npf
@@ -8,22 +9,25 @@ st.title("Cotizador de Arrendamiento - Cálculo de Renta, Flujos y TIR")
 
 # === Entradas del usuario ===
 st.header("1. Parámetros del Arrendamiento")
+st.caption("Ejemplo precargado: tasa 9%, plazo 36 meses, valor actual $8,179,959")
+
 col1, col2 = st.columns(2)
 with col1:
-    costo_equipo = st.number_input("Costo del equipo (pago al proveedor)", value=1_000_000.0)
-    pago_anticipo = st.number_input("Enganche o anticipo del cliente", value=100_000.0)
+    costo_equipo = st.number_input("Costo del equipo (pago al proveedor)", value=8_179_959.0)
+    pago_anticipo = st.number_input("Enganche o anticipo del cliente", value=0.0)
     plazo_meses = st.number_input("Plazo del arrendamiento (meses)", min_value=1, value=36)
 with col2:
-    tasa_anual = st.number_input("Tasa de interés anual (%)", value=16.0) / 100
+    tasa_anual = st.number_input("Tasa de interés anual (%)", value=9.0) / 100
 
-tasa_mensual = (1 + tasa_anual) ** (1/12) - 1
+# Se usa la fórmula simple: tasa anual dividida entre 12
+tasa_mensual = tasa_anual / 12
 capital_a_financiar = costo_equipo - pago_anticipo
 dias_totales = int(plazo_meses * 30)
 
 # === Cálculo de la renta mensual ===
 renta_mensual = -npf.pmt(tasa_mensual, plazo_meses, capital_a_financiar)
 
-# === Construcción del flujo de caja mensual (flujo 0 con pago al proveedor y enganche) ===
+# === Construcción del flujo de caja mensual ===
 flujo_mensual = [-costo_equipo + pago_anticipo] + [renta_mensual] * int(plazo_meses)
 tir_mensual = npf.irr(flujo_mensual)
 tir_anual = tir_mensual * 12 if tir_mensual else None
