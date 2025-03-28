@@ -4,3 +4,4 @@ numpy-financial
 pandas
 scipy
 matplotlib
+streamlit
